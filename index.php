@@ -1,16 +1,13 @@
 <?php
 
 include('config.php');
-// include(dirname(__FILE__) . '/vendor/phpoffice/phpword/bootstrap.php');
-// require_once(dirname(__FILE__) . '/vendor/autoload.php');
-// require_once (dirname(__FILE__) . '/vendor/PhpWord/bootstrap.php');
-// // \PhpOffice\PhpWord\Autoloader::register();
-// echo dirname(__FILE__) . '/vendor/phpoffice/phpword/bootstrap.php';
 $memberRequiredFields = array('firstName', 'lastName', 'email');
 $errors = [];
 $showForm = true;
 $userExists = false;
 $verified = false;
+$expired = false;
+$resend = false;
 
 if(!empty($_POST) && $_SERVER['REQUEST_METHOD'] === 'POST') {
 	$postFields = $_POST;
@@ -41,6 +38,12 @@ if(!empty($_POST) && $_SERVER['REQUEST_METHOD'] === 'POST') {
 			}
 		}
 
+		// $userInfo = array(
+		// 	'firstName' => $postFields['firstName'],
+		// 	'lastName' => $postFields['firstName'],
+		// 	);
+
+
 		$memberData = array(
 			'firstName' => isset($postFields['firstName']) ? $postFields['firstName'] : '',
 			'lastName' => isset($postFields['lastName']) ? $postFields['lastName'] : '',
@@ -48,29 +51,65 @@ if(!empty($_POST) && $_SERVER['REQUEST_METHOD'] === 'POST') {
 			'work' => isset($postFields['work']) ? $postFields['work'] : '',
 			'newsletter' => isset($postFields['newsletter']) ? $postFields['newsletter'] : 0,
 			'country' => isset($postFields['country']) ? $postFields['country'] : '',
-			'activationCode' => hash('sha256', $postFields['firstName'] . $postFields['lastName'] . $postFields['email']
-			                                     . 'sdiwc'),
+			'activationCode' => hash('sha256', $postFields['firstName'] . $postFields['lastName'] . $postFields['email'] . SECRET_CODE),
 			'accountStatus' => 'PENDING',
 			'subscriptionList' => $subscriptions,
 			'ip' => $_SERVER['REMOTE_ADDR']
 		);
-
-//		if(checkMemberExistsByEmail($memberData['email'])) {
-//
-//		}
-		
-//		_dump_var($_POST);
 		
 		if(checkMemberExistsByEmail($memberData['email'])) {
 			$errors['emailExists'] = true;
 			$showForm = false;
-		// } else if(checkMemberExistsByFullName($memberData['firstName'], $memberData['lastName'])){
-		// 	$showForm = false;
-		// 	$userExists = true;
+
+			$userData = getUserByEmail($memberData['email']);
+
+			// _dump_var(VERSION_ID);
+
+			// if($userData['versionId'] == 1) {
+			// 	if(!empty($userData['membershipValidDate'])) {
+			// 		$yearNow = date('Y');
+			// 	} else {
+			// 		$expired = true;
+			// 	}
+			// } else if(VERSION_ID == 2) {
+
+			// }
+				$membershipValidDate = $userData['membershipValidDate'];
+
+				if(!empty($membershipValidDate)) {
+					$membershipValidDateTimeStamp = strtotime($membershipValidDate);
+					$membershipYear = date('Y', $membershipValidDateTimeStamp);
+					$yearNow = date('Y');
+
+
+
+					if($yearNow == $membershipYear) {
+						// _dump_var($membershipYear);
+
+						_dump_var($yearNow);
+						_dump_var($membershipYear);
+						// _dump_var($userData);
+						$data = array(
+							'userId' => $userData['id'],
+							'token' => hash('sha256', $userData['id'] . SECRET_CODE . time())
+						);
+						updateToken($data, 'asdf1234_members');
+						$resend = true;
+					} else {
+						$expired = true;
+
+					}
+				// if(!empty($userData['membershipValidDate'])) {
+				// 	$yearNow = date('Y');
+				// } else {
+				// 	$expired = true;
+				// }
+				}
+
 		} else {
 			// _dump_var($memberData);
 			$memberRes = saveData($memberData, 'asdf1234_members');
-      $memberRes = 1;
+      // $memberRes = 1;
 			if($memberRes > 0) {
 				sendVerificationEmail($memberData);
 			}
@@ -119,27 +158,87 @@ if(!empty($countries)) {
 
 require_once('../header.php');
 ?>
-<div id="alert" style="display:none;color:red">Email Already exists. Please refer to this link to renew your membership. <a href="http://sdiwc.net/renewal.php">Renewal</a></div>
 
 <?php if($showForm) : ?>
 <h1>SDIWC Membership</h1>
 <p id="drop-cap" align="justify">Join SDIWC and get all the benefits of its membership. SDIWC membership is open to all individuals who believe in using technology for human advancement. By joining, you can attend all of the conferences organized by SDIWC at no charge, provided that you do not have a paper to publish. In addition, you will be able to get many discounts on all other activities. The membership fees help  to run SDIWC. Membership for the year <?php echo date('Y'); ?> is free, just fill up the following form:</p>
 <br>
+
 <?php endif; ?>
-<?php if(isset($_POST) && $_SERVER['REQUEST_METHOD'] === 'POST' && !empty($errors)) : ?>
+<?php if(isset($_POST) && $_SERVER['REQUEST_METHOD'] === 'POST' && !empty($errors) && false) : ?>
 	<div class="alert alert-danger" role="alert">
 		<h3>Failed!</h3>
 		<?php
-		$resendUrl = home_url
-			('/members/resend.php?email=' . ($memberData['email']));
+
+
+		$resendUrl = home_url('/members/resend.php?email=' . $memberData['email']);
 		?>
-		<p><strong><?php echo $memberData['email'] ?></strong> is already registered with SDIWC. Do you want to resend your certification? <a href="<?php echo ($resendUrl); ?>">Click here!</a></p>
+		<p><strong><?php echo $memberData['email'] ?></strong> is already registered with SDIWC. Do you want to resend your certification? <a href="<?php echo $resendUrl; ?>">Click here!</a></p>
 	</div>
 <?php endif; ?>
+
+
+
+
+
+<?php // ---------------------- EXPIRED ----------------------- ?>
+<?php if($expired) : ?>
+	<div class="alert alert-warning" role="alert">
+		<h3>Failed!</h3>
+		<?php
+
+		$remoteUserData = array(
+			'email' => $memberData['email'],
+			'ip' => $_SERVER['REMOTE_ADDR']
+		);
+
+		$remoteUserDataSerialize = serialize($remoteUserData);
+		$token = hash('sha256', $remoteUserDataSerialize . SECRET_CODE);
+		$renewLink = home_url
+			('members/renew.php?email=' . $memberData['email'] .'&token=' . $token);
+		?>
+		<p>Your membership is already expired. Do you want to renew your membership?</p>
+		<br/>
+		<p><a href="<?php echo $renewLink; ?>" class="btn btn-primary">Renew my membership</a></p>
+	</div>
+<?php endif; ?>
+<?php // ---------------------- EXPIRED ----------------------- ?>
+
+
+
+<?php // ---------------------- RESEND ----------------------- ?>
+<?php if($resend) : ?>
+	<div class="alert alert-warning" role="alert">
+		<h3>Sorry!</h3>
+		<?php
+
+		$remoteUserData = array(
+			'email' => $memberData['email'],
+			'ip' => $_SERVER['REMOTE_ADDR']
+		);
+
+		// $remoteUserDataSerialize = serialize($remoteUserData);
+		// $token = hash('sha256', $remoteUserDataSerialize . SECRET_CODE);
+		$token = hash('sha256', $userData['id'] . SECRET_CODE . time());
+		$renewLink = home_url
+			('members/resend.php?email=' . $memberData['email'] .'&token=' . $token);
+		?>
+		<p>Your membership for this year is valid. Do you want to resend your certification?</p>
+		<br/>
+		<p><a href="<?php echo $renewLink; ?>" class="btn btn-primary">Resend my membership</a></p>
+	</div>
+<?php endif; ?>
+<?php // ---------------------- RESEND ----------------------- ?>
+
+
+
+
+
+
 <?php if(isset($_POST) && $_SERVER['REQUEST_METHOD'] === 'POST' && empty($errors)) : ?>
 	<div class="alert alert-success" role="alert">
 		<h3>Verify Your E-mail Address</h3>
-		<p>We now need to verify your email address. We've sent an email to <strong><?php echo $postFields['email']; ?></strong>. Please click the link in that email to continue.</p>
+		<p>We now need to verify your email address. We've sent an email to <strong><?php echo $postFields['email']; ?></strong>.</p>
 	</div>
 <?php endif; ?>
 <?php if(isset($_GET['action']) && $_GET['action'] === 'sendCertificate' && !empty($_POST)) : ?>
@@ -184,7 +283,8 @@ require_once('../header.php');
 				<?php if(isset($errors['email'])) : ?>
 					<span id="email-error" class="help-block"><?php echo $errors['email']; ?></span>
 				<?php endif; ?>
-			</div><div class="form-group">
+			</div>
+			<div class="form-group">
 				<label class="control-label" for="work">University/Workplace</label>
 				<input type="text" name="work" value="<?php echo isset($_POST['work']) && !empty($errors) ?
 					$_POST['work'] : '';
@@ -213,6 +313,10 @@ require_once('../header.php');
 				<input type="submit" name="submitMembership" value="Submit" class="btn btn-primary btn-lg">
 			</div>
 			</form>
+			<br />
+			<div class="alert alert-info">
+				<p>Already a member? <strong><a class="btn btn-primary btn-xs" href="<?php echo home_url('members/update.php'); ?>">Update your membership</a></strong></p>
+			</div>
 		<?php endif; ?>
 	</div>
 </div>

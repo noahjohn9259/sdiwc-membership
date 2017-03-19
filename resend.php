@@ -3,26 +3,26 @@
 include('config.php');
 require_once('../header.php');
 
+$isResend = false;
 
-if(!empty($_GET)) {
-	$token = isset($_GET['token']) ? $_GET['token'] : '';
-	$email = isset($_GET['email']) ? $_GET['email'] : '';
-}
 
-$email = $_GET['email'];
+if(isset($_GET['email']) && isset($_GET['token'])) {
+	$email = $_GET['email'];
+	$token = $_GET['token'];
 
-$user = getUserByEmail($email);
-$userExists = false;
+	$user = getUserByEmail($email);
 
-if(!empty($user)) {
-	// _dump_var($user);
-	$userId = (int)$user['id'];
-	sendCertification($userId);
-	$userExists = true;
+	if(!empty($user)) {
+		if($user['token'] == $token) {
+			$userId = (int)$user['id'];
+			$isResend = true;
+			sendVerifyUser($userId);
+		}
+	}
 }
 
 ?>
-<?php if($userExists) : ?>
+<?php if($isResend) : ?>
 <div class="alert alert-success">
 	<h3><span class="fa fa-check" style="color: #43AC6A"></span>E-mail sent!</h3>
 	<p>We have sent you your certification. Please check your email.</p>

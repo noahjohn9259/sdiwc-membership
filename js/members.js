@@ -57,6 +57,18 @@
         form.submit();
       }
     });
+    $("#updateMembershipForm").validate({
+      rules: {
+        email: {
+          required: true,
+          maxlength: 100,
+          email: true
+        }
+      },
+      submitHandler: function(form) {
+        form.submit();
+      }
+    });
   });
 
   $('#newsletter').on('click', function(e) {

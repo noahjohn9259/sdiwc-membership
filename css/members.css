@@ -75,6 +75,8 @@
     outline: 0;
     box-shadow: none;
     border-color: #969696; }
+  .form-control:hover, .btn:hover {
+    border-bottom: 1px solid #204d74; }
 
 .calendarform .input-group {
   padding: 0;
@@ -101,3 +103,8 @@
   padding-left: 20px; }
   .interestedIn input[type="checkbox"] {
     margin-right: 5px; }
+
+a {
+  color: #31708f; }
+  a:hover {
+    color: #2a617c; }

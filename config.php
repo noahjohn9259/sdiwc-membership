@@ -2,6 +2,17 @@
 define('USER_ENV', ($_SERVER['SERVER_ADDR'] === '127.0.0.1' ? 'development' : 'production'));
 
 define('VERSION_ID', 2);
+define('EXPIRE_DURATION', 7200);
+define('SECRET_CODE', 'njucab.sdiwc');
+
+defined('ABS_PATH') or define('ABS_PATH', dirname(__FILE__));
+defined('SD_DROOT') or define('SD_DROOT', $_SERVER['DOCUMENT_ROOT']);
+defined('CERT_PATH') or define('CERT_PATH', SD_DROOT . '/certifications/');
+
+define('BCC_EMAIL', 'njucab.sdiwc@gmail.com');
+
+/* Tables */
+define('MEMBERS_TABLE', 'asdf1234_members');
 
 $dbConfig = [
 	'development' => [
@@ -20,12 +31,13 @@ $dbConfig = [
 
 $mailConfig = [
 	'development' => [
-		'MAIL_FROM' => 'membership@sdiwc.net',
+		'ADMIN_EMAIL' => 'sdiwc@sdiwc.net',
+		'MAIL_FROM' => 'sdiwc@sdiwc.net',
 		'MAIL_FROM_NAME' => 'SDIWC',
 	],
 	'production' => [
 		'ADMIN_EMAIL' => 'sdiwc@sdiwc.net',
-		'MAIL_FROM' => 'membership@sdiwc.net',
+		'MAIL_FROM' => 'sdiwc@sdiwc.net',
 		'MAIL_FROM_NAME' => 'The Society of Digital Information and Wireless Communications (SDIWC)',
 	],
 ];
@@ -49,5 +61,6 @@ global $dbmain, $mailMain, $subscriptionListArr;
 
 include('includes/helpers/functions.php');
 include('../includes/functions-include.php');
+require_once('libraries/PHPMailer/PHPMailerAutoload.php');
 include('includes/members.php');
 
