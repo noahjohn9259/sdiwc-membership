@@ -8,6 +8,7 @@ $userExists = false;
 $verified = false;
 $expired = false;
 $resend = false;
+$verifyEmailSent = false;
 
 if(!empty($_POST) && $_SERVER['REQUEST_METHOD'] === 'POST') {
 	$postFields = $_POST;
@@ -51,7 +52,7 @@ if(!empty($_POST) && $_SERVER['REQUEST_METHOD'] === 'POST') {
 			'work' => isset($postFields['work']) ? $postFields['work'] : '',
 			'newsletter' => isset($postFields['newsletter']) ? $postFields['newsletter'] : 0,
 			'country' => isset($postFields['country']) ? $postFields['country'] : '',
-			'activationCode' => hash('sha256', $postFields['firstName'] . $postFields['lastName'] . $postFields['email'] . SECRET_CODE),
+			'activationCode' => hash('sha256', time() . SECRET_CODE),
 			'accountStatus' => 'PENDING',
 			'subscriptionList' => $subscriptions,
 			'ip' => $_SERVER['REMOTE_ADDR']
@@ -86,8 +87,8 @@ if(!empty($_POST) && $_SERVER['REQUEST_METHOD'] === 'POST') {
 					if($yearNow == $membershipYear) {
 						// _dump_var($membershipYear);
 
-						_dump_var($yearNow);
-						_dump_var($membershipYear);
+						// _dump_var($yearNow);
+						// _dump_var($membershipYear);
 						// _dump_var($userData);
 						$data = array(
 							'userId' => $userData['id'],
@@ -118,6 +119,35 @@ if(!empty($_POST) && $_SERVER['REQUEST_METHOD'] === 'POST') {
 		}
 	}
 }
+
+
+
+if(isset($_GET['action']) && $_GET['action'] === 'resendActivation' && isset($_GET['email'])) {
+	// _dump_var($_GET);
+	$email = htmlspecialchars($_GET['email']);
+
+	if(checkMemberExistsByEmail($email)) {
+		$userData = getUserByEmail($email);
+
+		// updateActivationCode
+
+		$userData['activationCode'] = hash('sha256', time() . SECRET_CODE);
+		$userData['membershipValidDate'] = date('Y').'-12-31"';
+
+		updateActivationCode($userData);
+
+		sendVerificationEmail($userData);
+
+		header('Location: '.home_url('members/index.php?action=verify&success=true'));
+
+	}
+}
+
+if(isset($_GET['action']) && $_GET['action'] === 'verify' && isset($_GET['success']) && $_GET['success'] === 'true') {
+	$showForm = false;
+}
+
+
 $countries = getCountries();
 
 // _dump_var($countries);
@@ -179,83 +209,90 @@ require_once('../header.php');
 
 
 
-
-
-<?php // ---------------------- EXPIRED ----------------------- ?>
-<?php if($expired) : ?>
-	<div class="alert alert-warning" role="alert">
-		<h3>Failed!</h3>
-		<?php
-
-		$remoteUserData = array(
-			'email' => $memberData['email'],
-			'ip' => $_SERVER['REMOTE_ADDR']
-		);
-
-		$remoteUserDataSerialize = serialize($remoteUserData);
-		$token = hash('sha256', $remoteUserDataSerialize . SECRET_CODE);
-		$renewLink = home_url
-			('members/renew.php?email=' . $memberData['email'] .'&token=' . $token);
-		?>
-		<p>Your membership is already expired. Do you want to renew your membership?</p>
-		<br/>
-		<p><a href="<?php echo $renewLink; ?>" class="btn btn-primary">Renew my membership</a></p>
-	</div>
-<?php endif; ?>
-<?php // ---------------------- EXPIRED ----------------------- ?>
-
-
-
-<?php // ---------------------- RESEND ----------------------- ?>
-<?php if($resend) : ?>
-	<div class="alert alert-warning" role="alert">
-		<h3>Sorry!</h3>
-		<?php
-
-		$remoteUserData = array(
-			'email' => $memberData['email'],
-			'ip' => $_SERVER['REMOTE_ADDR']
-		);
-
-		// $remoteUserDataSerialize = serialize($remoteUserData);
-		// $token = hash('sha256', $remoteUserDataSerialize . SECRET_CODE);
-		$token = hash('sha256', $userData['id'] . SECRET_CODE . time());
-		$renewLink = home_url
-			('members/resend.php?email=' . $memberData['email'] .'&token=' . $token);
-		?>
-		<p>Your membership for this year is valid. Do you want to resend your certification?</p>
-		<br/>
-		<p><a href="<?php echo $renewLink; ?>" class="btn btn-primary">Resend my membership</a></p>
-	</div>
-<?php endif; ?>
-<?php // ---------------------- RESEND ----------------------- ?>
-
-
-
-
-
-
-<?php if(isset($_POST) && $_SERVER['REQUEST_METHOD'] === 'POST' && empty($errors)) : ?>
-	<div class="alert alert-success" role="alert">
-		<h3>Verify Your E-mail Address</h3>
-		<p>We now need to verify your email address. We've sent an email to <strong><?php echo $postFields['email']; ?></strong>.</p>
-	</div>
-<?php endif; ?>
-<?php if(isset($_GET['action']) && $_GET['action'] === 'sendCertificate' && !empty($_POST)) : ?>
-	<div class="alert alert-success" role="alert">
-		<p>We have sent you your certification. <br> If you have concerns email us at <a href="mailto:sdiwc@sdiwc.net">sdiwc@sdiwc.net</a>.</p>
-	</div>
-<?php endif; ?>
-<?php if(isset($_GET['action']) && $_GET['action'] === 'success') : ?>
-	<div class="alert alert-success" role="alert">
-		<h3>Thank you for joining SDIWC.</h3>
-		<p>We have sent you your certification to your e-mail address.</p>
-	</div>
-<?php endif; ?>
 <div class="row">
-	<div class="col-md-4 col-md-offset-4">
+	<div class="col-md-6 col-md-offset-3">
+		<?php // ---------------------- EXPIRED ----------------------- ?>
+		<?php if($expired) : ?>
+			<div class="alert alert-warning" role="alert">
+				<h3>Failed!</h3>
+				<?php
+
+				$remoteUserData = array(
+					'email' => $memberData['email'],
+					'ip' => $_SERVER['REMOTE_ADDR']
+				);
+
+				$remoteUserDataSerialize = serialize($remoteUserData);
+				$token = hash('sha256', $remoteUserDataSerialize . SECRET_CODE);
+				$renewLink = home_url
+					('members/renew.php?email=' . $memberData['email'] .'&token=' . $token);
+				?>
+				<p>Your membership is already expired. Do you want to renew your membership?</p>
+				<br/>
+				<p><a href="<?php echo $renewLink; ?>" class="btn btn-primary">Renew my membership</a></p>
+			</div>
+		<?php endif; ?>
+		<?php // ---------------------- EXPIRED ----------------------- ?>
+
+
+
+		<?php // ---------------------- RESEND ----------------------- ?>
+		<?php if($resend) : ?>
+			<div class="alert alert-warning" role="alert">
+				<h3>Sorry!</h3>
+				<?php
+
+				$token = hash('sha256', $userData['id'] . SECRET_CODE . time());
+				$renewLink = home_url
+					('members/resend.php?email=' . $memberData['email'] .'&token=' . $token);
+				?>
+				<p>Your membership for this year is valid. Do you want to resend your certification?</p>
+				<br/>
+				<p><a href="<?php echo $renewLink; ?>" class="btn btn-primary">Resend my membership</a></p>
+				<br>
+				<p><a href="<?php echo home_url('members/'); ?>"><strong><span class="fa fa-arrow-left"></span> Register with different email</strong></a></p>
+			</div>
+		<?php endif; ?>
+		<?php // ---------------------- RESEND ----------------------- ?>
+
+
+
+
+
+
+
+		<?php if(isset($_POST) && $_SERVER['REQUEST_METHOD'] === 'POST' && empty($errors)) : ?>
+			<div class="alert alert-success" role="alert">
+				<h3>Verify Your E-mail Address</h3>
+				<p>We now need to verify your email address. We've sent an email to <strong><?php echo $postFields['email']; ?></strong>.</p>
+			</div>
+		<?php endif; ?>
+
+		<?php if(isset($_GET['action']) && $_GET['action'] === 'verify' && isset($_GET['success']) && $_GET['success'] === 'true') : ?>
+			<div class="alert alert-success" role="alert">
+				<h3>Verify Your E-mail Address</h3>
+				<p>We now need to verify your email address. We've sent an email to <strong><?php echo $postFields['email']; ?></strong>.</p>
+			</div>
+		<?php endif; ?>
+
+		<?php if(isset($_GET['action']) && $_GET['action'] === 'sendCertificate' && !empty($_POST)) : ?>
+			<div class="alert alert-success" role="alert">
+				<p>We have sent you your certification. <br> If you have concerns email us at <a href="mailto:sdiwc@sdiwc.net">sdiwc@sdiwc.net</a>.</p>
+			</div>
+		<?php endif; ?>
+		<?php if(isset($_GET['action']) && $_GET['action'] === 'success') : ?>
+			<div class="alert alert-success" role="alert">
+				<h3>Thank you for joining SDIWC.</h3>
+				<p>We have sent your certification to your e-mail address.</p>
+			</div>
+		<?php endif; ?>
 		
 		<?php if($showForm) : ?>
+			<div class="alert alert-info">
+				<p>Already a member? </p>
+				<p><strong><a class="btn btn-primary btn-md btn-block" href="<?php echo home_url('members/update.php'); ?>">Update your membership</a></strong></p>
+				<p> <strong><a class="btn btn-primary btn-md btn-block" href="<?php echo home_url('members/renew.php'); ?>">Re-new your membership</a></strong></p>
+			</div>
 			<form id="membershipForm" action="<?php echo $_SERVER['PHP_SELF'];?>" method="post"">
 			<div class="form-group <?php echo isset($errors['firstName']) ? 'has-error' : ''; ?>">
 				<label class="control-label" for="firstName">First Name</label>
@@ -314,9 +351,7 @@ require_once('../header.php');
 			</div>
 			</form>
 			<br />
-			<div class="alert alert-info">
-				<p>Already a member? <strong><a class="btn btn-primary btn-xs" href="<?php echo home_url('members/update.php'); ?>">Update your membership</a></strong></p>
-			</div>
+			
 		<?php endif; ?>
 	</div>
 </div>

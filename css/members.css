@@ -99,6 +99,9 @@
 .alert.alert-success {
   color: #33394d; }
 
+.alert p {
+  text-align: left; }
+
 .interestedIn {
   padding-left: 20px; }
   .interestedIn input[type="checkbox"] {
@@ -108,3 +111,7 @@ a {
   color: #31708f; }
   a:hover {
     color: #2a617c; }
+    a:hover .fa {
+      color: #2a617c; }
+  a .fa {
+    color: #31708f; }

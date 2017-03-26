@@ -1,10 +1,13 @@
 <?php
 
 include('config.php');
-require_once('../header.php');
 
 $isResend = false;
 
+
+if(isset($_GET['success']) && $_GET['success'] == 'true') {
+	$isResend = true;
+}
 
 if(isset($_GET['email']) && isset($_GET['token'])) {
 	$email = $_GET['email'];
@@ -16,23 +19,30 @@ if(isset($_GET['email']) && isset($_GET['token'])) {
 		if($user['token'] == $token) {
 			$userId = (int)$user['id'];
 			$isResend = true;
-			sendVerifyUser($userId);
+			resendCertification($userId);
+
+			header('Location: '.home_url('members/resend.php?success=true'));
 		}
 	}
 }
+require_once('../header.php');
 
 ?>
-<?php if($isResend) : ?>
-<div class="alert alert-success">
-	<h3><span class="fa fa-check" style="color: #43AC6A"></span>E-mail sent!</h3>
-	<p>We have sent you your certification. Please check your email.</p>
+<div class="row">
+	<div class="col-md-6 col-md-offset-3">
+		<?php if($isResend) : ?>
+		<div class="alert alert-success">
+			<h3><span class="fa fa-check" style="color: #43AC6A"></span>Thank you!</h3>
+			<p>We have resend your certification. Please check your email.</p>
+		</div>
+		<?php else : ?>
+		<div class="alert alert-danger">
+			<h3><span class="fa fa-times" style="color: #B90000"></span>Failed!</h3>
+			<p>We couldn't process your request.</p>
+		</div>
+		<?php endif; ?>
+	</div>
 </div>
-<?php else : ?>
-<div class="alert alert-danger">
-	<h3><span class="fa fa-times" style="color: #B90000"></span>Failed!</h3>
-	<p>We cannot process your request.</p>
-</div>
-<?php endif; ?>
 <?php
 require_once("../footer.php");
 ?>

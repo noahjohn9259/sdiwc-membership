@@ -29,7 +29,7 @@ function generateCertificate($fn,$ln,$em,$uni,$nati,$id){
 	$pdf->Cell(190,15,$exp,0,1,'C');
 	$pdf->SetFont('Arial','B',12);
 	$pdf->Cell(190,15,'is a member of SDIWC. This membership allows the mentioned name',0,1,'C');
-	$pdf->Cell(190,15,'to take advantages from the SDIWC.',0,1,'C');
+	$pdf->Cell(190,15,'to take advantages of the opportunities offered by SDIWC.',0,1,'C');
 	$pdf->cell(80,50,'',0,1);
 	$pdf->cell(15);
 	$pdf->SetFont('Arial','B',10);

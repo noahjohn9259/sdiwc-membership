@@ -59,15 +59,9 @@ function validateEmail($email) {
 }
 
 function sendVerificationEmail($userData = []) {
-	
-	global $mailMain;
 
-	$replaceFields = array(
-		'{{email}}' => $userData['email'],
-		'{{url}}' => home_url('members/'),
-		'{{year}}' => date('Y'),
-		'{{activationCode}}' => $userData['activationCode'],
-	);
+
+	global $mailMain;
 
 	$verifyLink = home_url('members/?action=verify&email='.$userData['email'].'&activationCode='.$userData['activationCode']);
 
@@ -187,14 +181,15 @@ function sendCertification($userId) {
 	// if(empty($userData)) return;
 	
 //	include("../includes/functions.php");
-	include('certification.php');
-	global $mailMain;
+	global $mailMain, $subscriptionListArr;
 	
 	$userData = getUser($userId);
 	
 	if(!empty($userData)) {
 		
+		include('certification.php');
 		$certificationId = $userData['certificationId'];
+		$validDateTimestamp = strtotime(trim($userData['membershipValidDate'], '"'));
 		// if(!empty($certificationId)) {
 			$certificationId++;
 			
@@ -267,6 +262,10 @@ function sendCertification($userId) {
 			    <tr>
 			      <th style="text-align:left;">Country</th>
 			      <td>'.$userData['country'].'</td>
+			    </tr>
+			    <tr>
+			      <th style="text-align:left; padding-right: 20px">Membership valid until:</th>
+			      <td>December 31, '.date('Y', $validDateTimestamp).'</td>
 			    </tr>';
 			if(!empty($userData['newsletter'])) {
 				$adminMailMessage .= '<tr><th style="text-align:left;">Subscription</th>';
@@ -279,7 +278,6 @@ function sendCertification($userId) {
 					if(is_array($subscriptionList)) {
 						$adminMailMessage .= '<td><ul>';
 						foreach ($subscriptionList as $key => $value) {
-							// _dump_var($subscriptionListArr[$value]);
 							$adminMailMessage .= '<li>'.$subscriptionListArr[$value].'</li>';
 						}
 						$adminMailMessage .= '</ul></td>';
@@ -333,7 +331,30 @@ function renewMembership($data, $table) {
 	return false;
 }
 
-function updateToken($data, $table) {
+function updateMembership($data, $table = MEMBERS_TABLE) {
+	global $dbmain;
+	$id = $data['id'];
+	$membershipValidDate = $data['membershipValidDate'];
+	$sql = "UPDATE $table SET token='', activationCode='', membershipValidDate='$membershipValidDate' WHERE id=$id";
+	if($dbmain->query($sql) === true) {
+		return true;
+	}
+	return false;
+}
+
+function updateActivationCode($data, $table = MEMBERS_TABLE) {
+	global $dbmain;
+	$id = $data['id'];
+	$activationCode = $data['activationCode'];
+	$membershipValidDate = $data['membershipValidDate'];
+	$sql = "UPDATE $table SET activationCode='$activationCode', membershipValidDate='$membershipValidDate' WHERE id=$id";
+	if($dbmain->query($sql) === true) {
+		return true;
+	}
+	return false;
+}
+
+function updateToken($data, $table = MEMBERS_TABLE) {
 	global $dbmain;
 	$id = $data['userId'];
 	$token = $data['token'];
@@ -474,49 +495,134 @@ function testEmail() {
 	// }
 }
 
-function sendVerifyUser($userId) {
+
+function sendVerificationEmailForRenewal($userData = []) {
+
+
 	global $mailMain;
 
-	$userData = getUser($userId);
-	
+	$renewalLink = home_url('members/renew.php?action=renew&email='.$userData['email'].'&token='.$userData['token']);
+
+	// Message
+	$message = '
+	<html>
+	<head>
+	  <title>Verify your Membership Renewal</title>
+	</head>
+	<body>
+	  <h4>Verify your Membership Renewal</h4>
+	  <p><a class="btn btn-primary" href="'.$renewalLink.'">Verify Renewal</a></p>
+	  <p>If you did not request, please ignore this email. If you feel something went wrong, please contact us at <a href="mailto:sdiwc@sdiwc.net">sdiwc@sdiwc.net</a>.</p>
+	</body>
+	</html>
+	';
+
+	//PHPMailer Object
+	$mail = new PHPMailer;
+
+	//From email address and name
+	$mail->From = $mailMain['MAIL_FROM'];
+	$mail->FromName = $mailMain['MAIL_FROM_NAME'];
+
+	//To address and name
+	$mail->addAddress($userData['email']);
+
+	//CC and BCC
+	// $mail->addBCC(BCC_EMAIL);
+
+	//Send HTML or Plain Text email
+	$mail->isHTML(true);
+
+	$mail->Subject = "Verify your Membership Renewal";
+	$mail->Body = $message;
+	$mail->AltBody = br2nl($message);
+
+	$mail->send();
+}
+
+
+function sendCertificationForRenewal($userData) {
+	global $mailMain, $subscriptionListArr;
+
 	if(!empty($userData)) {
+
+		include('certification.php');
+
+		$certificationId = $userData['certificationId'];
+
+
+		$validDateTimestamp = strtotime(trim($userData['membershipValidDate'], '"'));
+		// echo $validDateTimestamp;
+		// exit('asd');
+
 
 		$token = $userData['token']; // note the comma
 		$updateLink = home_url('members/update.php?email='.$userData['email'].'&token='.$token);
 		
+		$file=generateCertificate($userData['firstName'], $userData['lastName'], $userData['email'], $userData['work'], $userData['country'], $certificationId);
+		$certificationPath = CERT_PATH . $file;
+
 		// Message
 		$message = '
-				<html>
-				<head>
-				  <title>Member Update Verification</title>
-				</head>
-				<body>
-				  <p>Your membership details:</p>
-				  <table>
-				  	<tbody>
-				  		<tr>
-				  			<th style="text-align:left;">First Name</th>
-				  			<td>'.$userData['firstName'].'</td>
-				  		</tr>
-				  		<tr>
-				  			<th style="text-align:left;">Last Name</th>
-				  			<td>'.$userData['lastName'].'</td>
-				  		</tr>
-				  		<tr>
-				  			<th style="text-align:left;">University/Work</th>
-				  			<td>'.$userData['work'].'</td>
-				  		</tr>
-				  		<tr>
-				  			<th style="text-align:left;">Country</th>
-				  			<td>'.$userData['country'].'</td>
-				  		</tr>
-				  	</tbody>
-				  </table>
-				  <p>If you want to proceed, go to the link below.</p>
-				  <p><a href="'.$updateLink.'">'.$updateLink.'</a></p>
-				</body>
-				</html>
-				';
+		<html>
+		<head>
+		  <title>Membership Certification</title>
+		</head>
+		<body>
+		  <h4>Membership Information</h4>
+		  <table style="margin-bottom: 20px;">';
+		$message .= '
+		    <tr>
+		      <th style="text-align:left; padding-right: 20px">First Name</th>
+		      <td>'.$userData['firstName'].'</td>
+		    </tr>
+		    <tr>
+		      <th style="text-align:left; padding-right: 20px">Last Name</th>
+		      <td>'.$userData['lastName'].'</td>
+		    </tr>
+		    <tr>
+		      <th style="text-align:left; padding-right: 20px">E-mail</th>
+		      <td>'.$userData['email'].'</td>
+		    </tr>
+		    <tr>
+		      <th style="text-align:left; padding-right: 20px">University/Workplace</th>
+		      <td>'.$userData['work'].'</td>
+		    </tr>
+		    <tr>
+		      <th style="text-align:left; padding-right: 20px">Country</th>
+		      <td>'.$userData['country'].'</td>
+		    </tr>
+		    <tr>
+		      <th style="text-align:left; padding-right: 20px">Membership valid until:</th>
+		      <td>December 31, '.date('Y', $validDateTimestamp).'</td>
+		    </tr>';
+		if(!empty($userData['newsletter'])) {
+			$message .= '<tr><th style="text-align:left; padding-right: 20px">Subscription</th>';
+			if(!empty($userData['subscriptionList'])) {
+
+				$subscriptionList = unserialize($userData['subscriptionList']);
+
+				// _dump_var($subscriptionList);
+
+				if(is_array($subscriptionList)) {
+					$message .= '<td><div>';
+					foreach ($subscriptionList as $key => $value) {
+						$message .= '<div>'.$subscriptionListArr[$value].'</div>';
+					}
+					$message .= '</div></td>';
+				}
+			} else {
+				$message .= '<td>All</td>';
+			}
+			$message .= '</tr>';
+		}
+		$message .= '
+		  </table>
+		  <p>If you want to update your membership information, visit link below.</p>
+			<p><a href="'.$updateLink.'">'.$updateLink.'</a></p>
+		</body>
+		</html>
+		';
 
 		//PHPMailer Object
 		$mail = new PHPMailer;
@@ -534,21 +640,257 @@ function sendVerifyUser($userId) {
 		//Send HTML or Plain Text email
 		$mail->isHTML(true);
 
-		$mail->Subject = "Member Update Verification";
+		$mail->Subject = "Membership Certification";
 		$mail->Body = $message;
 		$mail->AltBody = "If you want to update your membership, you can go to this link below.\r\n\r\n".$updateLink;
 
+		$mail->addAttachment($certificationPath, 'Certification.pdf');
+
 		$mail->send();
 
+		$adminMailSubject = "Membership Certification (Renewed)";
+		// Message
+		$adminMessage = '
+		<html>
+		<head>
+		  <title>Membership Certification (Renewed)</title>
+		</head>
+		<body>
+		  <h4>Member Information</h4>
+		  <table>';
+		$adminMessage .= '
+		    <tr>
+		      <th style="text-align:left; margin-right: 20px">First Name</th>
+		      <td>'.$userData['firstName'].'</td>
+		    </tr>
+		    <tr>
+		      <th style="text-align:left; margin-right: 20px">Last Name</th>
+		      <td>'.$userData['lastName'].'</td>
+		    </tr>
+		    <tr>
+		      <th style="text-align:left; margin-right: 20px">E-mail</th>
+		      <td>'.$userData['email'].'</td>
+		    </tr>
+		    <tr>
+		      <th style="text-align:left; margin-right: 20px">University/Workplace</th>
+		      <td>'.$userData['work'].'</td>
+		    </tr>
+		    <tr>
+		      <th style="text-align:left; margin-right: 20px">Country</th>
+		      <td>'.$userData['country'].'</td>
+		    </tr>
+		    <tr>
+		      <th style="text-align:left; padding-right: 20px">Membership valid until:</th>
+		      <td>December 31, '.date('Y', $validDateTimestamp).'</td>
+		    </tr>';
+		if(!empty($userData['newsletter'])) {
+			$adminMessage .= '<tr><th style="text-align:left; margin-right: 20px">Subscription</th>';
+			if(!empty($userData['subscriptionList'])) {
+
+				$subscriptionList = unserialize($userData['subscriptionList']);
+
+				if(is_array($subscriptionList)) {
+					$adminMessage .= '<td><div>';
+					foreach ($subscriptionList as $key => $value) {
+						$adminMessage .= '<p style="margin-bottom: 5px;">'.$subscriptionListArr[$value].'</p>';
+					}
+					$adminMessage .= '</div></td>';
+				}
+			} else {
+				$adminMessage .= '<td>All</td>';
+			}
+			$adminMessage .= '</tr>';
+		}
+		$adminMessage .= '
+		  </table>
+		</body>
+		</html>
+		';
+
+		sendAdminNotif($adminMailSubject, $adminMessage);
+	}
+}
+
+
+
+function resendCertification($userId) {
+	global $mailMain, $subscriptionListArr;
+
+	$userData = getUser($userId);
+	
+	if(!empty($userData)) {
+
+		include('certification.php');
+
+		$certificationId = $userData['certificationId'];
+
+		$validDateTimestamp = strtotime(trim($userData['membershipValidDate'], '"'));
+
+		$token = $userData['token']; // note the comma
+		$updateLink = home_url('members/update.php?email='.$userData['email'].'&token='.$token);
+		
+		$file=generateCertificate($userData['firstName'], $userData['lastName'], $userData['email'], $userData['work'], $userData['country'], $certificationId);
+		$certificationPath = CERT_PATH . $file;
+
+		// Message
+		$message = '
+		<html>
+		<head>
+		  <title>Membership Certification</title>
+		</head>
+		<body>
+		  <h4>Membership Information</h4>
+		  <table style="margin-bottom: 20px;">';
+		$message .= '
+		    <tr>
+		      <th style="text-align:left; padding-right: 20px">First Name</th>
+		      <td>'.$userData['firstName'].'</td>
+		    </tr>
+		    <tr>
+		      <th style="text-align:left; padding-right: 20px">Last Name</th>
+		      <td>'.$userData['lastName'].'</td>
+		    </tr>
+		    <tr>
+		      <th style="text-align:left; padding-right: 20px">E-mail</th>
+		      <td>'.$userData['email'].'</td>
+		    </tr>
+		    <tr>
+		      <th style="text-align:left; padding-right: 20px">University/Workplace</th>
+		      <td>'.$userData['work'].'</td>
+		    </tr>
+		    <tr>
+		      <th style="text-align:left; padding-right: 20px">Country</th>
+		      <td>'.$userData['country'].'</td>
+		    </tr>
+		    <tr>
+		      <th style="text-align:left; padding-right: 20px">Membership valid until:</th>
+		      <td>December 31, '.date('Y', $validDateTimestamp).'</td>
+		    </tr>';
+		if(!empty($userData['newsletter'])) {
+			$message .= '<tr><th style="text-align:left; padding-right: 20px">Subscription</th>';
+			if(!empty($userData['subscriptionList'])) {
+
+				$subscriptionList = unserialize($userData['subscriptionList']);
+
+				// _dump_var($subscriptionList);
+
+				if(is_array($subscriptionList)) {
+					$message .= '<td><div>';
+					foreach ($subscriptionList as $key => $value) {
+						$message .= '<p>'.$subscriptionListArr[$value].'</p>';
+					}
+					$message .= '</div></td>';
+				}
+			} else {
+				$message .= '<td>All</td>';
+			}
+			$message .= '</tr>';
+		}
+		$message .= '
+		  </table>
+		  <p>If you want to update your membership information, visit link below.</p>
+			<p><a href="'.$updateLink.'">'.$updateLink.'</a></p>
+		</body>
+		</html>
+		';
+
+		//PHPMailer Object
+		$mail = new PHPMailer;
+
+		//From email address and name
+		$mail->From = $mailMain['MAIL_FROM'];
+		$mail->FromName = $mailMain['MAIL_FROM_NAME'];
+
+		//To address and name
+		$mail->addAddress($userData['email']);
+
+		//CC and BCC
+		// $mail->addBCC(BCC_EMAIL);
+
+		//Send HTML or Plain Text email
+		$mail->isHTML(true);
+
+		$mail->Subject = "Membership Certification";
+		$mail->Body = $message;
+		$mail->AltBody = "If you want to update your membership, you can go to this link below.\r\n\r\n".$updateLink;
+
+		$mail->addAttachment($certificationPath, 'Certification.pdf');
+
+		$mail->send();
+
+		$adminMailSubject = "Membership Certification (Resent)";
+		// Message
+		$adminMessage = '
+		<html>
+		<head>
+		  <title>Membership Certification (Resent)</title>
+		</head>
+		<body>
+		  <h4>Member Information</h4>
+		  <table>';
+		$adminMessage .= '
+		    <tr>
+		      <th style="text-align:left; margin-right: 20px">First Name</th>
+		      <td>'.$userData['firstName'].'</td>
+		    </tr>
+		    <tr>
+		      <th style="text-align:left; margin-right: 20px">Last Name</th>
+		      <td>'.$userData['lastName'].'</td>
+		    </tr>
+		    <tr>
+		      <th style="text-align:left; margin-right: 20px">E-mail</th>
+		      <td>'.$userData['email'].'</td>
+		    </tr>
+		    <tr>
+		      <th style="text-align:left; margin-right: 20px">University/Workplace</th>
+		      <td>'.$userData['work'].'</td>
+		    </tr>
+		    <tr>
+		      <th style="text-align:left; margin-right: 20px">Country</th>
+		      <td>'.$userData['country'].'</td>
+		    </tr>
+		    <tr>
+		      <th style="text-align:left; padding-right: 20px">Membership valid until:</th>
+		      <td>December 31, '.date('Y', $validDateTimestamp).'</td>
+		    </tr>';
+		if(!empty($userData['newsletter'])) {
+			$adminMessage .= '<tr><th style="text-align:left; margin-right: 20px">Subscription</th>';
+			if(!empty($userData['subscriptionList'])) {
+
+				$subscriptionList = unserialize($userData['subscriptionList']);
+
+				if(is_array($subscriptionList)) {
+					$adminMessage .= '<td><div>';
+					foreach ($subscriptionList as $key => $value) {
+						$adminMessage .= '<p style="margin-bottom: 5px;">'.$subscriptionListArr[$value].'</p>';
+					}
+					$adminMessage .= '</div></td>';
+				}
+			} else {
+				$adminMessage .= '<td>All</td>';
+			}
+			$adminMessage .= '</tr>';
+		}
+		$adminMessage .= '
+		  </table>
+		</body>
+		</html>
+		';
+
+		sendAdminNotif($adminMailSubject, $adminMessage);
 	}
 }
 
 function sendCert($userData = []) {
-	global $mailMain;
+	global $mailMain, $subscriptionListArr;
 
 	if(!empty($userData)) {
 
 		include('certification.php');
+
+		$certificationId = $userData['certificationId'];
+
+		$validDateTimestamp = strtotime(trim($userData['membershipValidDate'], '"'));
 
 		$file=generateCertificate($userData['firstName'], $userData['lastName'], $userData['email'], $userData['work'], $userData['country'], $certificationId);
 		$certificationPath = CERT_PATH . $file;
@@ -591,7 +933,7 @@ function sendCert($userData = []) {
 
 		$adminMailSubject = "Membership Certification (Renewed)";
 		// Message
-		$adminMailMessage = '
+		$adminMessage = '
 		<html>
 		<head>
 		  <title>Membership Certification (Renewed)</title>
@@ -619,6 +961,10 @@ function sendCert($userData = []) {
 		    <tr>
 		      <th style="text-align:left;">Country</th>
 		      <td>'.$userData['country'].'</td>
+		    </tr>
+		    <tr>
+		      <th style="text-align:left; padding-right: 20px">Membership valid until:</th>
+		      <td>December 31, '.date('Y', $validDateTimestamp).'</td>
 		    </tr>';
 		if(!empty($userData['newsletter'])) {
 			$adminMessage .= '<tr><th style="text-align:left;">Subscription</th>';
@@ -631,7 +977,6 @@ function sendCert($userData = []) {
 				if(is_array($subscriptionList)) {
 					$adminMessage .= '<td><ul>';
 					foreach ($subscriptionList as $key => $value) {
-						// _dump_var($subscriptionListArr[$value]);
 						$adminMessage .= '<li>'.$subscriptionListArr[$value].'</li>';
 					}
 					$adminMessage .= '</ul></td>';
@@ -647,6 +992,6 @@ function sendCert($userData = []) {
 		</html>
 		';
 
-		sendAdminNotif($adminMailSubject, $adminMailMessage);
+		sendAdminNotif($adminMailSubject, $adminMessage);
 	}
 }

@@ -30,7 +30,6 @@ if(isset($_GET['email']) && isset($_GET['token'])) {
 	if(!empty($user)) {
 		if($user['token'] == $token) {
 			$userId = (int)$user['id'];
-			// sendVerifyUser($userId);
 
 			$showForm = true;
 
@@ -138,7 +137,7 @@ if(!empty($_POST) && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['upda
 				'token' => hash('sha256', $userId . SECRET_CODE . time())
 			);
 			updateToken($data, 'asdf1234_members');
-			sendVerifyUser($userId);
+			resendCertification($userId);
 
 			header('Location: ' . home_url('members/update.php?sent=true'));
 		}
@@ -152,8 +151,8 @@ require_once('../header.php');
 ?>
 
 <div class="row">
-	<div class="col-md-4 col-md-offset-4">
-		<?php if($_GET['success'] == 'true') : ?>
+	<div class="col-md-6 col-md-offset-3">
+		<?php if(isset($_GET['success']) && $_GET['success'] == 'true') : ?>
 			<div class="alert alert-success">
 				<h4>Thank you!</h4>
 				<p>Please check your email for your certification.</p>

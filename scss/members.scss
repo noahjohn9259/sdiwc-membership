@@ -106,6 +106,9 @@
   &.alert-success {
     color: #33394d;
   }
+  p {
+    text-align: left;
+  }
 }
 
 .interestedIn {
@@ -119,5 +122,11 @@ a {
     color: #31708f;
     &:hover {
         color: darken(#31708f, 5%);
+        .fa {
+            color: darken(#31708f, 5%);
+        }
+    }
+    .fa {
+        color: #31708f;
     }
 }
